@@ -17,7 +17,8 @@ reading_auto_data <- function(
     #--------------------------------------------------
     # list all files in delivery folder
 
-    if (config_globals()[["current_delivery"]] == "Jan_2025") {
+    # NOTE: potentially swap if and else statement (if "else" becomes the exception)
+    if (config_globals()[["current_delivery"]] %in% c("Jan_2025", "Feb_2025")) {
         folders <- list.dirs(
             data_file_path,
             recursive = FALSE,
