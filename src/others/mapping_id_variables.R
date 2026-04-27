@@ -57,7 +57,12 @@ mapping_id_variables <- function(
                                 16425,
                                 16437,
                                 16391,
-                                51904
+                                51904,
+                                16406, 
+                                16417, 
+                                20137, 
+                                16392,
+                                50981
                             ) ~ helpers_missing_values()[["other"]],
                             TRUE ~ makeid
                         )
@@ -90,7 +95,21 @@ mapping_id_variables <- function(
                                 74263,
                                 19666,
                                 76141,
-                                76140
+                                76140, 
+                                20769, 
+                                75256, 
+                                21104, 
+                                21068, 
+                                20771, 
+                                21069, 
+                                20767, 
+                                74961, 
+                                74940, 
+                                16075, 
+                                20407, 
+                                19507, 
+                                19506, 
+                                19504
                             ) ~ helpers_missing_values()[["other"]],
                             TRUE ~ modelid
                         )
