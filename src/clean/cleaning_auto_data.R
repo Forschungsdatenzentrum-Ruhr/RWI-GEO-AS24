@@ -1,3 +1,4 @@
+# TODO: Adjust error codes cad#1 to cad#xx (consistent numbering)
 cleaning_auto_data <- function (
     auto_data = NA,
     municipalities = NA
@@ -71,6 +72,8 @@ cleaning_auto_data <- function (
             )
     }
 
+    # TODO: move line 250 (type setting)
+
     #--------------------------------------------------
     # set missing values according to variable type
     # NOTE: other missing types will be specified throughout the cleaning
@@ -109,68 +112,64 @@ cleaning_auto_data <- function (
     # exclude variables
     
     for (col in helpers_deleted_variables()) {
-        # throw warning if column does not exist
-        targets::tar_assert_true(
-            col %in% names(auto_data_prep),
-            msg = glue::glue(
-                "!!! WARNING: ",
-                "The column {col} does not exist in the data set.",
-                " (Error code: cad#3)"
-            )
-        )
-
-        # extract unique values
-        unique_values <- unique(auto_data_prep[[col]])
-
-        # for fornewmarket check that always 0 because removing
-        if (col == "fornewmarket") {
-            unique_values <- unique_values[
-                !unique_values %in% helpers_missing_values()[["all_missings"]]
-            ]
-            targets::tar_assert_true(
-                unique_values == 0,
-                msg = glue::glue(
-                    "!!! WARNING: ",
-                    "The unique value for {col} is not as expected.",
-                    " (Error code: cad#4)"
-                )
-            )
-        }
-
-        # for currencyid: it should be all missing as all prices are in Euro
-        if (col == "currencyid") {
-            targets::tar_assert_true(
-                all(
-                    unique_values %in% c(
-                        helpers_missing_values()[["not_specified"]],
-                        "EUR"
-                    )
-                ),
-                msg = glue::glue(
-                    "!!! WARNING: ",
-                    "The unique value for {col} is not as expected.",
-                    " (Error code: cad#5)"
-                )
-            )
-        }
-
-        # for stateid: check if always 'A'
-        if (col == "stateid") {
-            unique_values <- unique_values[
-                !unique_values %in% helpers_missing_values()[["all_missings"]]
-            ]
-            targets::tar_assert_true(
-                unique_values == "A",
-                msg = glue::glue(
-                    "!!! WARNING: ",
-                    "The unique value for {col} is not as expected.",
-                    " (Error code: cad#6)"
-                )
-            )
-        }
-
-        # remove column
         if (col %in% names(auto_data_prep)) {
+            # extract unique values
+            unique_values <- unique(auto_data_prep[[col]])
+
+            # for fornewmarket check that always 0 because removing
+            if ("fornewmarket" %in% names(auto_data_prep)) {
+                unique_values <- unique(auto_data_prep[["fornewmarket"]])
+        
+                unique_values <- unique_values[
+                    !unique_values %in% helpers_missing_values()[["all_missings"]]
+                ]
+                targets::tar_assert_true(
+                    unique_values == 0,
+                    msg = glue::glue(
+                        "!!! WARNING: ",
+                        "The unique value for {col} is not as expected.",
+                        " (Error code: cad#4)"
+                    )
+                )
+            }
+
+            # for currencyid: it should be all missing as all prices are in Euro
+            if ("currencyid" %in% names(auto_data_prep)) {
+                unique_values <- unique(auto_data_prep[["currencyid"]])
+
+                targets::tar_assert_true(
+                    all(
+                        unique_values %in% c(
+                            helpers_missing_values()[["not_specified"]],
+                            "EUR"
+                        )
+                    ),
+                    msg = glue::glue(
+                        "!!! WARNING: ",
+                        "The unique value for {col} is not as expected.",
+                        " (Error code: cad#5)"
+                    )
+                )
+            }
+
+            # for stateid: check if always 'A'
+            if ("stateid" %in% names(auto_data_prep)) {
+                unique_values <- unique(auto_data_prep[["stateid"]])
+
+                unique_values <- unique_values[
+                    !unique_values %in% helpers_missing_values()[["all_missings"]]
+                ]
+                targets::tar_assert_true(
+                    unique_values == "A",
+                    msg = glue::glue(
+                        "!!! WARNING: ",
+                        "The unique value for {col} is not as expected.",
+                        " (Error code: cad#6)"
+                    )
+                )
+            }
+
+            # remove column
             auto_data_prep[[col]] <- NULL
         }
     }
@@ -179,11 +178,19 @@ cleaning_auto_data <- function (
     # merge countrycode and country_id and fix differences
     # NOTE: coalesce cannot be used as NA are redefined already
 
+    if (!"countrycode" %in% names(auto_data_prep)) {
+        auto_data_prep$countrycode <- NA_character_
+    }
+
     auto_data_prep <- auto_data_prep |>
         dplyr::mutate(
             countrycode_aux = NA_character_,
             countrycode_aux = dplyr::case_when(
                 country_id == "D" ~ "DE",
+                country_id == "F" ~ "FR", 
+                country_id == "I" ~ "IT", 
+                country_id == "NL" ~ "NL", 
+                country_id == "A" ~ "AT", 
                 countrycode == "DE" ~ "DE",
                 TRUE ~ countrycode_aux
             )
@@ -218,7 +225,7 @@ cleaning_auto_data <- function (
     ]
 
     targets::tar_assert_true(
-        all(unique_country_id_raw %in% c("D")),
+        all(unique_country_id_raw %in% c("D", "A", "F", "NL", "I")),
         msg = glue::glue(
             "!!! WARNING: ",
             "The country ID does not match the expected values.",
@@ -227,13 +234,28 @@ cleaning_auto_data <- function (
     )
 
     targets::tar_assert_true(
-        all(unique_countrycode_raw %in% c("DE")),
+        all(unique_countrycode_raw %in% c("DE", "AT", "FR", "NL", "IT")),
         msg = glue::glue(
             "!!! WARNING: ",
             "The country codes do not match the expected values.",
             " (Error code: cad#9)"
         )
     )
+
+
+    #--------------------------------------------------
+    # fix variable types for February 2025 delivery
+    # TODO: Generalize: if variables do not have type -> set type
+    # move to the top
+    #
+    if (config_globals()[["current_delivery"]] == "Feb_2025") {
+        auto_data_prep <- auto_data_prep |>
+            dplyr::mutate(
+                dplyr::across(c("modelid", "mileage", "bodytypeid"), as.integer),
+                dplyr::across(c("price"), as.numeric),
+                dplyr::across(c("zip"), as.character)
+            )
+    }
 
     #--------------------------------------------------
     # set missings because some variables are not available for all years
@@ -277,15 +299,24 @@ cleaning_auto_data <- function (
         # combine the two datasets
         auto_data_prep <- rbind(older_data, newer_data)
     } else {
-        targets::tar_error(
-            message = glue::glue(
-                "Check if IF condition applies for the current delivery.",
-                " (Error code: cad#11)"
-            ),
-            class = "CustomError"
-        )
+        # NOTE: add newer variables if needed
+        for (var in helpers_newer_variables()) {
+            if (!var %in% names(auto_data_prep)) {
+                auto_data_prep[[var]] <- helpers_missing_values()[["not_available"]]
+            }
+        }
+
+        # adjust types
+        auto_data_prep <- auto_data_prep |>
+            dplyr::mutate(
+                dplyr::across(
+                    .cols = c("transmissionid", "city", "country_zip_code"),
+                    ~ as.character(.x)
+                )
+            )
     }
 
+    # TODO: Check if really missing for other countries than D
     #--------------------------------------------------
     # calculate thresholds for censoring
 
@@ -383,15 +414,17 @@ cleaning_auto_data <- function (
     auto_data_prep <- auto_data_prep |>
         dplyr::mutate(
             dplyr::across(
-                .cols = numeric_cols,
+                .cols = dplyr::all_of(numeric_cols),
                 ~ dplyr::case_when(
                     (
                         .x <= thresholds_list[[dplyr::cur_column()]][["value"]][1] &
+                        .x != helpers_missing_values()[["not_available"]] &
                         .x != helpers_missing_values()[["not_specified"]] &
                         .x != helpers_missing_values()[["other"]]
                     ) ~ helpers_missing_values()[["implausible"]],
                     (
                         .x >= thresholds_list[[dplyr::cur_column()]][["value"]][2] &
+                        .x != helpers_missing_values()[["not_available"]] &
                         .x != helpers_missing_values()[["not_specified"]] &
                         .x != helpers_missing_values()[["other"]]
                     ) ~ helpers_missing_values()[["implausible"]],
@@ -436,6 +469,7 @@ cleaning_auto_data <- function (
             # remove white space around zip code "00  "
             # NOTE: this is a special case since somehow these are not regular
             # white-spaces
+            # TODO: fix sufficient for different countries?
             zip = stringi::stri_replace_all_fixed(zip, "\uFFFC", ""),
             # fix that some zip codes include ".0" (especially earlier waves)
             zip = dplyr::case_when(
@@ -455,13 +489,13 @@ cleaning_auto_data <- function (
                     helpers_missing_values()[["implausible"]]
                 ),
                 # add leading zeros for 4-digit zip codes
-                nchar(zip) == 4 ~ stringr::str_pad(
+                nchar(zip) == 4 & countrycode == "DE" ~ stringr::str_pad(
                     zip,
                     width = 5,
                     side = "left",
                     pad = "0"
                 ),
-                nchar(zip) > 5 ~ as.character(
+                nchar(zip) > 6 ~ as.character(
                     helpers_missing_values()[["implausible"]]
                 ),
                 TRUE ~ zip
@@ -482,6 +516,7 @@ cleaning_auto_data <- function (
 
     #--------------------------------------------------
     # testing for zip codes and transmission ID
+    # TODO: adapt for other countries
 
     # test that zip codes are 5 digits long
     unique_values_zip <- unique(auto_data_prep$zip)
@@ -490,10 +525,10 @@ cleaning_auto_data <- function (
     ]
 
     targets::tar_assert_true(
-        unique(nchar(unique_values_zip)) == 5,
+        all(nchar(unique_values_zip) %in% c(4,5,6)),
         msg = glue::glue(
             "!!! WARNING: ",
-            "The zip codes do not have the expected length of 5 digits.",
+            "The zip codes do not have the expected length of 4, 5 or 6 digits.",
             " (Error code: cad#12)"
         )
     )
@@ -608,6 +643,7 @@ cleaning_auto_data <- function (
     #--------------------------------------------------
     # subset the unique municipality names for the next step
     # TODO: how to deal with this once you have more countries than Germany?
+    # HR: We don't have the variable city for other countries
 
     munics <- unique(municipalities$name)
 
@@ -680,6 +716,7 @@ cleaning_auto_data <- function (
         !unique(auto_data_prep$country_zip_code) %in% as.character(helpers_missing_values()[["all_missings"]])
     ]
 
+    if (length(unique_country_zipcode) > 0) {
     targets::tar_assert_true(
         unique(nchar(unique_country_zipcode)) == 4,
         msg = glue::glue(
@@ -688,6 +725,7 @@ cleaning_auto_data <- function (
             " (Error code: cad#18)"
         )
     )
+    }
 
     # test that the country identifier in zipcode matches country code
     auto_data_prep <- auto_data_prep |>
@@ -710,7 +748,8 @@ cleaning_auto_data <- function (
     )
 
     auto_data_prep$countrycode_aux <- NULL
-
+    
+    
     #--------------------------------------------------
     # add version and delivery of the data
 
